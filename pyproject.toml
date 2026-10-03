@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agentbreaker-pipeline"
+version = "0.1.0"
+description = "AgentBreaker loop detection and Supabase logging pipeline"
+requires-python = ">=3.11"
+dependencies = [
+  "python-dotenv>=1.0.1",
+  "supabase>=2.0.0",
+  "langchain-core>=0.3.0",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8.0"]
+
+[tool.setuptools]
+packages = ["agentbreaker_detector"]
+py-modules = ["supabase_logger", "langchain_handler"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

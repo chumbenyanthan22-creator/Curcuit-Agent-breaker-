@@ -1,4 +1,4 @@
-name: Detector tests
+name: Detector and pipeline tests
 
 on:
   push:
@@ -16,7 +16,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install test runner
-        run: python -m pip install --upgrade pytest
-      - name: Run detector tests
+      - name: Install project and test dependencies
+        run: python -m pip install -e ".[test]"
+      - name: Run detector and pipeline tests
         run: python -m pytest -q
