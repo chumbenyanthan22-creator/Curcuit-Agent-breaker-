@@ -28,3 +28,19 @@ The publishable key is safe for browser use only when Row Level Security remains
 ## Current prototype boundary
 
 The dashboard’s approval, policy-toggle, and emergency-stop interactions remain local demo state. A production version should add authenticated users, workspace-scoped RLS policies, server-side approval mutations, append-only audit ingestion, and realtime subscriptions before handling real financial or operational actions.
+
+## Detector pipeline
+
+The applied migration `supabase/migrations/001_create_detector_tables.sql` adds:
+
+- `agent_sessions`
+- `tool_execution_logs`
+- `agent_alerts`
+
+`SupabaseLogger` checks these tables at startup, connects from `SUPABASE_URL` and `SUPABASE_KEY` when no client is injected, and writes failures to `.agentbreaker-outbox.jsonl`. Database DDL is applied through the migration, not executed by the runtime with a public key.
+
+The real proof agent wrote session `bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb` with 2 tool executions, 3 loop alerts, `$0.02` spend, and `is_paused = true`. The dashboard now reads `agent_alerts` and displays the caught loops as live activity.
+
+## RLS hardening required
+
+Supabase currently reports the three detector tables as RLS-disabled. This is acceptable only for the temporary demo proof and exposes rows to clients using the anon key. Before production, enable RLS and add authenticated, workspace/session-scoped policies. Do not use the anon key for unrestricted server writes; use a server-side service-role secret or protected backend route.

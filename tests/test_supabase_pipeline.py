@@ -12,6 +12,16 @@ class Query:
         self.store, self.table_name, self.fail = store, table, fail
         self.operation, self.payload, self.filters = None, None, {}
 
+    def select(self, columns):
+        return self
+
+    def limit(self, count):
+        return self
+
+    def upsert(self, payload, on_conflict=None):
+        self.operation, self.payload = "upsert", payload
+        return self
+
     def insert(self, payload):
         self.operation, self.payload = "insert", payload
         return self
@@ -27,7 +37,8 @@ class Query:
     def execute(self):
         if self.fail:
             raise ConnectionError("Supabase unavailable")
-        self.store.append((self.operation, self.table_name, self.payload, self.filters))
+        if self.operation is not None:
+            self.store.append((self.operation, self.table_name, self.payload, self.filters))
         return {"data": [self.payload]}
 
 
@@ -37,6 +48,17 @@ class FakeClient:
 
     def table(self, name):
         return Query(self.store, name, self.fail)
+
+
+def test_logger_reports_schema_ready(tmp_path: Path):
+    assert SupabaseLogger(FakeClient(), tmp_path / "outbox.jsonl").schema_ready
+
+
+def test_session_initialization_writes_expected_schema(tmp_path: Path):
+    client = FakeClient()
+    assert SupabaseLogger(client, tmp_path / "outbox.jsonl").ensure_session("s1")
+    assert client.store[0][0] == "upsert" and client.store[0][1] == "agent_sessions"
+    assert client.store[0][2]["current_spend_usd"] == 0.0
 
 
 def test_tool_call_writes_expected_schema(tmp_path: Path):

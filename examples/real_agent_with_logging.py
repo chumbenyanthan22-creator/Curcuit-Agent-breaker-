@@ -5,7 +5,6 @@ from uuid import uuid4
 
 from dotenv import load_dotenv
 from langchain_core.tools import StructuredTool
-from supabase import create_client
 
 from langchain_handler import LoopBreakerHandler, LoopDetectedException
 from supabase_logger import SupabaseLogger
@@ -13,8 +12,11 @@ from supabase_logger import SupabaseLogger
 load_dotenv()
 session_id = os.getenv("SESSION_ID", str(uuid4()))
 print(f"session_id={session_id}")
-client = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_KEY"])
-logger = SupabaseLogger(client)
+logger = SupabaseLogger()
+if not logger.schema_ready:
+    raise RuntimeError(f"Missing Supabase tables: {', '.join(logger.missing_tables)}")
+if not logger.ensure_session(session_id, max_budget_usd=10.0):
+    raise RuntimeError("Could not initialize agent session")
 handler = LoopBreakerHandler(session_id, logger, cost_per_call_usd=0.01)
 
 

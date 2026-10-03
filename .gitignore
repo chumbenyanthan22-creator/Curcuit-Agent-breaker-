@@ -117,3 +117,4 @@ __pycache__/
 .pytest_cache/
 
 *.egg-info/
+.agentbreaker-outbox.jsonl

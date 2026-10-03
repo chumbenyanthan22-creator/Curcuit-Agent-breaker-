@@ -165,13 +165,14 @@ export default function Home() {
   useEffect(() => {
     let mounted = true;
     const loadLiveWorkspace = async () => {
-      const [agentsResult, policiesResult, approvalsResult, auditResult] = await Promise.all([
+      const [agentsResult, policiesResult, approvalsResult, auditResult, alertsResult] = await Promise.all([
         supabase.from("agents").select("id,slug,name,description,status,agent_class,risk_level,budget_cents,tool_calls,last_seen_at").eq("workspace_id", DEMO_WORKSPACE_ID).order("created_at"),
         supabase.from("policies").select("id,title,description,scope,enabled").eq("workspace_id", DEMO_WORKSPACE_ID).order("created_at"),
         supabase.from("approvals").select("id,reference,action,detail,risk_level,requested_at,agent_id,agents(name,slug)").eq("workspace_id", DEMO_WORKSPACE_ID).eq("status", "pending").order("requested_at"),
         supabase.from("audit_events").select("id,agent_id,agent_name,action,detail,outcome,risk_level,created_at,agents(slug)").eq("workspace_id", DEMO_WORKSPACE_ID).order("created_at", { ascending: false }).limit(12),
+        supabase.from("agent_alerts").select("id,session_id,alert_type,fingerprint,cycle_length,created_at").order("created_at", { ascending: false }).limit(8),
       ]);
-      if (!mounted || agentsResult.error || policiesResult.error || approvalsResult.error || auditResult.error) return;
+      if (!mounted || agentsResult.error || policiesResult.error || approvalsResult.error || auditResult.error || alertsResult.error) return;
       const liveAgents = (agentsResult.data ?? []).map((row) => ({
         id: row.slug,
         name: row.name,
@@ -188,11 +189,12 @@ export default function Home() {
       const livePolicies = (policiesResult.data ?? []).map((row) => ({ id: Number.parseInt(row.id.slice(0, 8), 16), title: row.title, description: row.description, scope: row.scope, state: row.enabled, icon: iconForPolicy(row.title), accent: row.title.toLowerCase().includes("export") ? "coral" : row.title.toLowerCase().includes("budget") ? "violet" : row.title.toLowerCase().includes("loop") ? "amber" : "mint" }));
       const liveApprovals = (approvalsResult.data ?? []).map((row) => ({ id: row.reference, agent: relatedAgentField(row.agents, "name") ?? "Agent", action: row.action, detail: row.detail, risk: titleCase(row.risk_level) as RiskLevel, age: "live" }));
       const liveEvents = (auditResult.data ?? []).map((row, index) => ({ id: index + 100, agent: row.agent_name, agentId: relatedAgentField(row.agents, "slug") ?? "workspace", action: row.action, detail: row.detail, status: row.outcome as ActivityStatus, risk: titleCase(row.risk_level) as RiskLevel, time: "live", timeSort: index }));
+      const liveAlerts = (alertsResult.data ?? []).map((row, index) => ({ id: index + 1000, agent: "Live detector", agentId: "workspace", action: row.alert_type, detail: `Cycle length ${row.cycle_length} blocked before dispatch · ${row.fingerprint.slice(0, 10)}`, status: "blocked" as ActivityStatus, risk: "Critical" as RiskLevel, time: "live", timeSort: index }));
       if (liveAgents.length && livePolicies.length && liveApprovals.length && liveEvents.length) {
         setAgentsFromSupabase(liveAgents);
         setPolicies(livePolicies);
         setApprovals(liveApprovals);
-        setEvents(liveEvents);
+        setEvents([...liveAlerts, ...liveEvents]);
         setDataSource("supabase");
       }
     };
