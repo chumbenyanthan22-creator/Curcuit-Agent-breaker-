@@ -7,12 +7,13 @@ from dotenv import load_dotenv
 from langchain_core.tools import StructuredTool
 
 from langchain_handler import LoopBreakerHandler, LoopDetectedException
+from slack_alerter import SlackAlerter
 from supabase_logger import SupabaseLogger
 
 load_dotenv()
 session_id = os.getenv("SESSION_ID", str(uuid4()))
 print(f"session_id={session_id}")
-logger = SupabaseLogger()
+logger = SupabaseLogger(slack_alerter=SlackAlerter.from_env())
 if not logger.schema_ready:
     raise RuntimeError(f"Missing Supabase tables: {', '.join(logger.missing_tables)}")
 if not logger.ensure_session(session_id, max_budget_usd=10.0):

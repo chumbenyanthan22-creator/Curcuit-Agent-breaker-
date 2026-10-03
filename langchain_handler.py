@@ -31,6 +31,12 @@ class LoopBreakerHandler:
         self.detector = detector or Detector()
         self.cost_per_call_usd = float(cost_per_call_usd)
         self.current_spend = 0.0
+        try:
+            from slack_webhook_handler import register_session
+            register_session(self.session_id, self.detector, self.logger)
+        except ImportError:
+            # Keep the detector usable in minimal installations without FastAPI.
+            pass
 
     def invoke(self, tool_name: str, args: dict[str, Any], execute: Callable[[dict[str, Any]], Any]) -> HandlerResult:
         call = ToolCall(self.session_id, tool_name, args)

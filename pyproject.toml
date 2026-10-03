@@ -11,14 +11,17 @@ dependencies = [
   "python-dotenv>=1.0.1",
   "supabase>=2.0.0",
   "langchain-core>=0.3.0",
+  "fastapi>=0.115.0",
+  "uvicorn[standard]>=0.30.0",
+  "python-multipart>=0.0.9",
 ]
 
 [project.optional-dependencies]
-test = ["pytest>=8.0"]
+test = ["pytest>=8.0", "httpx>=0.27.0"]
 
 [tool.setuptools]
 packages = ["agentbreaker_detector"]
-py-modules = ["supabase_logger", "langchain_handler"]
+py-modules = ["supabase_logger", "langchain_handler", "slack_alerter", "slack_webhook_handler"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

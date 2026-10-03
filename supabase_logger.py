@@ -6,7 +6,10 @@ import hashlib
 import json
 import os
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Protocol, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from slack_alerter import SlackAlerter
 
 
 class SupabaseLike(Protocol):
@@ -32,7 +35,7 @@ class SupabaseLogger:
     REQUIRED_TABLES = ("agent_sessions", "tool_execution_logs", "agent_alerts")
     DEFAULT_WORKSPACE_ID = "11111111-1111-1111-1111-111111111111"
 
-    def __init__(self, client: SupabaseLike | None = None, outbox_path: str | Path = ".agentbreaker-outbox.jsonl") -> None:
+    def __init__(self, client: SupabaseLike | None = None, outbox_path: str | Path = ".agentbreaker-outbox.jsonl", slack_alerter: "SlackAlerter | None" = None) -> None:
         if client is None:
             from dotenv import load_dotenv
             from supabase import create_client
@@ -45,6 +48,7 @@ class SupabaseLogger:
             client = create_client(url, key)
         self.client = client
         self.outbox_path = Path(outbox_path)
+        self.slack_alerter = slack_alerter
         self.missing_tables: list[str] = []
         self._check_tables()
 
@@ -121,7 +125,10 @@ class SupabaseLogger:
             "cycle_length": int(loop_info.get("cycle_length", 1)),
             "created_at": self._now(),
         }
-        return self._write("agent_alerts", payload)
+        written = self._write("agent_alerts", payload)
+        if self.slack_alerter is not None:
+            self.slack_alerter.alert_loop(session_id, {**loop_info, "fingerprint": fingerprint}, tool_name)
+        return written
 
     def pause_session(self, session_id: str, reason: str) -> bool:
         return self._update("agent_sessions", {"is_paused": True}, {"session_id": session_id}, reason=reason)
