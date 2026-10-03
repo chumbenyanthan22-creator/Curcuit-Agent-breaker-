@@ -25,11 +25,13 @@ class HandlerResult:
 class LoopBreakerHandler:
     """Pre-dispatch handler for LangChain tools with Supabase event logging."""
 
-    def __init__(self, session_id: str, logger: SupabaseLogger, detector: Detector | None = None, cost_per_call_usd: float = 0.0) -> None:
+    def __init__(self, session_id: str, logger: SupabaseLogger, detector: Detector | None = None, cost_per_call_usd: float = 0.0, model_name: str = "gpt-4", agent_id: str | None = None) -> None:
         self.session_id = session_id
         self.logger = logger
         self.detector = detector or Detector()
         self.cost_per_call_usd = float(cost_per_call_usd)
+        self.model_name = model_name
+        self.agent_id = agent_id
         self.current_spend = 0.0
         try:
             from slack_webhook_handler import register_session
@@ -48,10 +50,9 @@ class LoopBreakerHandler:
             self.logger.pause_session(self.session_id, decision.reason)
             raise LoopDetectedException(self.session_id, tool_name, call.fingerprint, self.detector.loop_threshold)
         output = execute(args)
-        self.current_spend += self.cost_per_call_usd
-        self.logger.log_tool_call(self.session_id, tool_name, args, output, self.cost_per_call_usd)
-        self.logger.update_session_spend(self.session_id, self.current_spend)
-        return HandlerResult(output=output, cost_usd=self.cost_per_call_usd)
+        self.logger.log_tool_call(self.session_id, tool_name, args, output, model_name=self.model_name, agent_id=self.agent_id)
+        self.current_spend += self.logger.last_cost_usd
+        return HandlerResult(output=output, cost_usd=self.logger.last_cost_usd)
 
     # Callback-shaped aliases for LangChain integrations.
     def on_loop(self, tool_name: str, loop_info: dict[str, Any], fingerprint: str) -> None:
@@ -59,6 +60,5 @@ class LoopBreakerHandler:
         self.logger.pause_session(self.session_id, str(loop_info.get("reason", "loop detected")))
 
     def on_tool_end(self, tool_name: str, args: dict[str, Any], output: Any, cost_usd: float) -> None:
-        self.current_spend += float(cost_usd)
-        self.logger.log_tool_call(self.session_id, tool_name, args, output, cost_usd)
-        self.logger.update_session_spend(self.session_id, self.current_spend)
+        self.logger.log_tool_call(self.session_id, tool_name, args, output, model_name=self.model_name, agent_id=self.agent_id)
+        self.current_spend += self.logger.last_cost_usd

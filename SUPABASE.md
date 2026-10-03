@@ -44,3 +44,7 @@ The real proof agent wrote session `bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb` with 2
 ## RLS hardening required
 
 Supabase currently reports the three detector tables as RLS-disabled. This is acceptable only for the temporary demo proof and exposes rows to clients using the anon key. Before production, enable RLS and add authenticated, workspace/session-scoped policies. Do not use the anon key for unrestricted server writes; use a server-side service-role secret or protected backend route.
+
+## Cost telemetry
+
+Migration `supabase/migrations/002_cost_tracking.sql` adds `model_name`, `output_tokens_estimated`, and optional `agent_id` to `tool_execution_logs`. `CostCalculator` estimates output tokens as roughly four characters per token and applies rates from `pricing_config.json` or `AGENTBREAKER_PRICING_CONFIG`; it never calls a model provider. Each `SupabaseLogger.log_tool_call()` writes the calculated cost and increments `agent_sessions.current_spend_usd`. `AggregateSpendingView` groups costs by UTC day and agent/session and caches results for five minutes.

@@ -11,6 +11,8 @@ from typing import Any, Protocol, TYPE_CHECKING
 if TYPE_CHECKING:
     from slack_alerter import SlackAlerter
 
+from cost_calculator import CostCalculator
+
 
 class SupabaseLike(Protocol):
     def table(self, name: str) -> Any: ...
@@ -35,7 +37,7 @@ class SupabaseLogger:
     REQUIRED_TABLES = ("agent_sessions", "tool_execution_logs", "agent_alerts")
     DEFAULT_WORKSPACE_ID = "11111111-1111-1111-1111-111111111111"
 
-    def __init__(self, client: SupabaseLike | None = None, outbox_path: str | Path = ".agentbreaker-outbox.jsonl", slack_alerter: "SlackAlerter | None" = None) -> None:
+    def __init__(self, client: SupabaseLike | None = None, outbox_path: str | Path = ".agentbreaker-outbox.jsonl", slack_alerter: "SlackAlerter | None" = None, cost_calculator: CostCalculator | None = None) -> None:
         if client is None:
             from dotenv import load_dotenv
             from supabase import create_client
@@ -49,6 +51,9 @@ class SupabaseLogger:
         self.client = client
         self.outbox_path = Path(outbox_path)
         self.slack_alerter = slack_alerter
+        self.cost_calculator = cost_calculator or CostCalculator.from_config_file(supabase_client=client)
+        self.last_cost_usd = 0.0
+        self.last_output_tokens = 0
         self.missing_tables: list[str] = []
         self._check_tables()
 
@@ -107,15 +112,24 @@ class SupabaseLogger:
             self._queue("agent_sessions", payload, exc)
             return False
 
-    def log_tool_call(self, session_id: str, tool_name: str, args: dict[str, Any], output: Any, cost_usd: float) -> bool:
+    def log_tool_call(self, session_id: str, tool_name: str, args: dict[str, Any], output: Any, cost_usd: float | None = None, model_name: str = "gpt-4", agent_id: str | None = None) -> bool:
+        output_length = len(str(output))
+        self.last_output_tokens = self.cost_calculator.estimate_tokens(output_length)
+        self.last_cost_usd = self.cost_calculator.estimate_cost(output_length, model_name)
         payload = {
             "session_id": session_id,
             "tool_name": tool_name,
             "arguments_hash": self._args_hash(args),
-            "cost_incurred": float(cost_usd),
+            "cost_incurred": self.last_cost_usd,
+            "model_name": model_name,
+            "output_tokens_estimated": self.last_output_tokens,
             "executed_at": self._now(),
         }
-        return self._write("tool_execution_logs", payload)
+        if agent_id:
+            payload["agent_id"] = agent_id
+        written = self._write("tool_execution_logs", payload)
+        self.increment_session_spend(session_id, self.last_cost_usd)
+        return written
 
     def log_loop_detection(self, session_id: str, loop_info: dict[str, Any], tool_name: str, fingerprint: str) -> bool:
         payload = {
@@ -135,6 +149,17 @@ class SupabaseLogger:
 
     def update_session_spend(self, session_id: str, current_spend: float) -> bool:
         return self._update("agent_sessions", {"current_spend_usd": float(current_spend)}, {"session_id": session_id})
+
+    def increment_session_spend(self, session_id: str, delta_usd: float) -> bool:
+        try:
+            response = (self.client.table("agent_sessions").select("current_spend_usd")
+                        .eq("session_id", session_id).limit(1).execute())
+            rows = response.get("data") or []
+            current = float((rows[0] or {}).get("current_spend_usd") or 0) if rows else 0.0
+            return self._update("agent_sessions", {"current_spend_usd": round(current + float(delta_usd), 8)}, {"session_id": session_id})
+        except Exception as exc:  # noqa: BLE001
+            self._queue("agent_sessions", {"session_id": session_id, "spend_increment_usd": float(delta_usd)}, exc)
+            return False
 
     def _update(self, table: str, values: dict[str, Any], filters: dict[str, Any], **context: Any) -> bool:
         try:

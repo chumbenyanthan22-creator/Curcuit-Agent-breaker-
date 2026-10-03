@@ -102,4 +102,4 @@ def test_handler_logs_calls_spend_and_loop(tmp_path: Path):
     assert tables.count("tool_execution_logs") == 2
     assert "agent_alerts" in tables
     assert "agent_sessions" in tables
-    assert handler.current_spend == 0.2
+    assert handler.current_spend == pytest.approx(0.00006)

@@ -18,7 +18,12 @@ if not logger.schema_ready:
     raise RuntimeError(f"Missing Supabase tables: {', '.join(logger.missing_tables)}")
 if not logger.ensure_session(session_id, max_budget_usd=10.0):
     raise RuntimeError("Could not initialize agent session")
-handler = LoopBreakerHandler(session_id, logger, cost_per_call_usd=0.01)
+handler = LoopBreakerHandler(
+    session_id,
+    logger,
+    model_name=os.getenv("MODEL_NAME", "gpt-4"),
+    agent_id=os.getenv("AGENT_ID"),
+)
 
 
 def read_invoice(invoice_id: str) -> str:

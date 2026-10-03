@@ -7,3 +7,10 @@
 - **Deliver approval and response interactions.** Users must be able to approve or block a pending action, and trigger a clearly presented emergency stop; the resulting state must be reflected in the activity feed and approval queue.
 - **Deliver Audit Trail and Settings sections with realistic seeded records and representative configuration controls.** Keep all data and interactions client-side without authentication or external services.
 - **Deliver a working static route manifest and project metadata.** Serve `/manus-routes.json` for the root page and include project logo metadata before checkpointing.
+
+## Cost tracking
+
+- Add estimate-based `CostCalculator` with config-loaded model pricing.
+- Persist estimated output tokens, model name, and calculated cost for every tool execution.
+- Increment `agent_sessions.current_spend_usd` from logged tool costs.
+- Add cached daily spend aggregation and dashboard cost trend/per-call cost display.
