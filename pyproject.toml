@@ -1,27 +1,43 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=68", "wheel", "build"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "agentbreaker-pipeline"
+name = "agentbreaker"
 version = "0.1.0"
-description = "AgentBreaker loop detection and Supabase logging pipeline"
+description = "Loop detection and cost tracking for LangChain agents"
+readme = "README.md"
 requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{name = "AgentBreaker contributors"}]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+]
 dependencies = [
+  "langchain-core>=1.0",
+  "supabase>=2.0",
+  "requests",
   "python-dotenv>=1.0.1",
-  "supabase>=2.0.0",
-  "langchain-core>=0.3.0",
-  "fastapi>=0.115.0",
-  "uvicorn[standard]>=0.30.0",
-  "python-multipart>=0.0.9",
 ]
 
 [project.optional-dependencies]
+web = ["fastapi>=0.115.0", "uvicorn[standard]>=0.30.0", "python-multipart>=0.0.9"]
 test = ["pytest>=8.0", "httpx>=0.27.0"]
 
-[tool.setuptools]
-packages = ["agentbreaker_detector"]
-py-modules = ["supabase_logger", "langchain_handler", "slack_alerter", "slack_webhook_handler"]
+[project.urls]
+Homepage = "https://github.com/chumbenyanthan22-creator/Curcuit-Agent-breaker-"
+Repository = "https://github.com/chumbenyanthan22-creator/Curcuit-Agent-breaker-.git"
+
+[tool.setuptools.packages.find]
+include = ["agentbreaker"]
+
+[tool.setuptools.package-data]
+agentbreaker = ["pricing_config.json"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

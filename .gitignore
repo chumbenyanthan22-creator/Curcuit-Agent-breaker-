@@ -118,3 +118,11 @@ __pycache__/
 
 *.egg-info/
 .agentbreaker-outbox.jsonl
+
+# Python package build artifacts
+dist/
+build/
+*.egg-info/
+
+# Local PyPI credentials
+.pypirc

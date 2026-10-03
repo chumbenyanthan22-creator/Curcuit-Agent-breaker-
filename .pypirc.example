@@ -1,0 +1,17 @@
+# Copy to ~/.pypirc only when you are ready to configure an upload target.
+# Never commit real API tokens or passwords.
+
+[distutils]
+index-servers =
+    pypi
+    testpypi
+
+[pypi]
+repository = https://upload.pypi.org/legacy/
+username = __token__
+password = pypi-<replace-with-your-token>
+
+[testpypi]
+repository = https://test.pypi.org/legacy/
+username = __token__
+password = pypi-<replace-with-your-test-token>

@@ -1,0 +1,4 @@
+include LICENSE
+include README.md
+recursive-include agentbreaker pricing_config.json
+recursive-include examples *.py
