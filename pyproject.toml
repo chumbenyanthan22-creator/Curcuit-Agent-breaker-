@@ -8,8 +8,7 @@ version = "0.1.0"
 description = "Loop detection and cost tracking for LangChain agents"
 readme = "README.md"
 requires-python = ">=3.11"
-license = "MIT"
-license-files = ["LICENSE"]
+license = {file = "LICENSE"}
 authors = [{name = "AgentBreaker contributors"}]
 classifiers = [
   "Development Status :: 3 - Alpha",
