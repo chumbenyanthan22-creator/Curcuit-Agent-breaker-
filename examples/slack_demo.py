@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import time
 
-from slack_alerter import SlackAlerter
+from agentbreaker.slack_alerter import SlackAlerter
 
 
 session_id = "demo-slack-session"
