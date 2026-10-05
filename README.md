@@ -20,6 +20,31 @@ from agentbreaker import LoopBreakerHandler, LoopDetector
 pip install "agentbreaker[web]"
 ```
 
+## Budget enforcement and loop rehearsal
+
+The handler can block a tool call before dispatch when the estimated next-call
+cost would exceed a session budget:
+
+```python
+handler = LoopBreakerHandler(
+    session_id=session_id,
+    logger=logger,
+    max_budget_usd=1.00,
+)
+```
+
+AgentBreaker is intentionally deterministic, not an ML model. The recommended
+first “training” step is replaying labelled traces (safe polling versus
+no-progress repetition) and tuning thresholds from real agent logs:
+
+```bash
+python -m examples.loop_training_rehearsal
+```
+
+The rehearsal proves that the current default blocks the repeated trace while
+allowing a legitimate status-check sequence. It does not replace validation on
+real customer workloads.
+
 ## Repository layout
 
 - `agentbreaker/` — distributable Python package
@@ -80,3 +105,11 @@ This repository is **not uploaded to PyPI yet**. Increment the version in `pypro
 ## Existing dashboard
 
 The AgentBreaker dashboard remains a separate React application and continues to use the existing Supabase schema and telemetry pipeline. The Python package restructure does not change the database tables or Slack workflow.
+
+## Production security rollout
+
+The demo tables currently support public dashboard reads and must not be treated
+as production multi-tenant storage. Before onboarding a second customer, follow
+the review plan in `supabase/RLS_ROLLOUT.md` to add tenant-scoped authentication,
+server-side writes, and RLS policies. The plan is intentionally not auto-applied
+because enabling RLS without matching policies would change live access behavior.

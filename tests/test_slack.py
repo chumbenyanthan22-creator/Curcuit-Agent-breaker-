@@ -1,11 +1,15 @@
 import json
+import hashlib
+import hmac
 import threading
+import time
+from urllib.parse import urlencode
 
 from fastapi.testclient import TestClient
 
 from agentbreaker_detector import Detector
 from slack_alerter import SlackAlerter
-from slack_webhook_handler import app, register_session
+from slack_webhook_handler import app, mark_loop_alert, register_session
 
 
 class Logger:
@@ -14,6 +18,9 @@ class Logger:
 
     def pause_session(self, session_id, reason):
         self.paused.append((session_id, reason))
+        return True
+
+    def resume_session(self, session_id):
         return True
 
 
@@ -55,3 +62,24 @@ def test_kill_pauses_session():
     response = TestClient(app).post("/webhook/slack", data={"payload": json.dumps({"actions": [{"action_id": "agentbreaker_kill", "value": json.dumps({"session_id": "s-kill"})}]})})
     assert response.status_code == 200
     assert logger.paused == [("s-kill", "Killed from Slack")]
+
+
+def test_loop_alert_timeout_pauses_session():
+    detector = Detector()
+    logger = Logger()
+    register_session("s-timeout", detector, logger)
+    mark_loop_alert("s-timeout", timeout_seconds=0.01)
+    deadline = time.time() + 1
+    while time.time() < deadline and not logger.paused:
+        time.sleep(0.01)
+    assert logger.paused == [("s-timeout", "No Slack decision received before timeout")]
+
+
+def test_slack_signature_is_required_when_configured(monkeypatch):
+    monkeypatch.setenv("SLACK_SIGNING_SECRET", "test-secret")
+    payload = json.dumps({"actions": [{"action_id": "agentbreaker_kill", "value": json.dumps({"session_id": "missing"})}]})
+    body = urlencode({"payload": payload}).encode()
+    timestamp = str(int(time.time()))
+    signature = "v0=" + hmac.new(b"test-secret", f"v0:{timestamp}:".encode() + body, hashlib.sha256).hexdigest()
+    response = TestClient(app).post("/webhook/slack", content=body, headers={"Content-Type": "application/x-www-form-urlencoded", "X-Slack-Request-Timestamp": timestamp, "X-Slack-Signature": signature})
+    assert response.status_code == 404

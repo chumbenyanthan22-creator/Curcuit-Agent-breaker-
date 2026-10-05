@@ -2,11 +2,13 @@
 
 Set `SLACK_WEBHOOK_URL` in the backend environment. The `SupabaseLogger` accepts a `SlackAlerter` and schedules the Block Kit POST on a daemon thread so detector enforcement never waits on Slack.
 
+For a public interactivity endpoint, also set `SLACK_SIGNING_SECRET`. The endpoint verifies Slack's timestamped HMAC signature before parsing the form. If no Continue/Kill response arrives, `AGENTBREAKER_SLACK_TIMEOUT_SECONDS` (default: 60) pauses the session as the safe default.
+
 ## Local run
 
 ```sh
 python examples/slack_demo.py
-uvicorn slack_webhook_handler:app --host 0.0.0.0 --port 8000
+uvicorn agentbreaker.slack_webhook_handler:app --host 0.0.0.0 --port 8000
 ```
 
 Configure the Slack app’s Interactivity Request URL as:
@@ -15,7 +17,7 @@ Configure the Slack app’s Interactivity Request URL as:
 https://<backend-origin>/webhook/slack
 ```
 
-The Continue button resets the registered detector session. Kill calls `pause_session` and keeps the session paused.
+The Continue button resets the registered detector session and resumes it when the logger supports `resume_session`. Kill calls `pause_session` and keeps the session paused.
 
 ## Deployment
 

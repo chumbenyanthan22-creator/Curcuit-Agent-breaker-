@@ -144,8 +144,22 @@ class SupabaseLogger:
             self.slack_alerter.alert_loop(session_id, {**loop_info, "fingerprint": fingerprint}, tool_name)
         return written
 
+    def log_budget_exceeded(self, session_id: str, tool_name: str, estimated_cost_usd: float, max_budget_usd: float) -> bool:
+        """Record a budget block without sending a loop alert to Slack."""
+        payload = {
+            "session_id": session_id,
+            "alert_type": "budget_exceeded",
+            "fingerprint": f"budget:{session_id}",
+            "cycle_length": 0,
+            "created_at": self._now(),
+        }
+        return self._write("agent_alerts", payload)
+
     def pause_session(self, session_id: str, reason: str) -> bool:
         return self._update("agent_sessions", {"is_paused": True}, {"session_id": session_id}, reason=reason)
+
+    def resume_session(self, session_id: str) -> bool:
+        return self._update("agent_sessions", {"is_paused": False}, {"session_id": session_id})
 
     def update_session_spend(self, session_id: str, current_spend: float) -> bool:
         return self._update("agent_sessions", {"current_spend_usd": float(current_spend)}, {"session_id": session_id})

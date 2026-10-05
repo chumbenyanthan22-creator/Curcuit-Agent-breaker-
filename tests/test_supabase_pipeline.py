@@ -1,9 +1,10 @@
 from pathlib import Path
 
 import pytest
+from langchain_core.tools import StructuredTool
 
 from agentbreaker_detector import Detector
-from langchain_handler import LoopBreakerHandler, LoopDetectedException
+from langchain_handler import BudgetExceededException, LoopBreakerHandler, LoopDetectedException
 from supabase_logger import SupabaseLogger
 
 
@@ -101,5 +102,36 @@ def test_handler_logs_calls_spend_and_loop(tmp_path: Path):
     tables = [entry[1] for entry in client.store]
     assert tables.count("tool_execution_logs") == 2
     assert "agent_alerts" in tables
-    assert "agent_sessions" in tables
+    assert "agent_alerts" in tables
     assert handler.current_spend == pytest.approx(0.00006)
+
+
+def test_handler_blocks_before_budget_is_exceeded(tmp_path: Path):
+    client = FakeClient()
+    logger = SupabaseLogger(client, tmp_path / "outbox.jsonl")
+    handler = LoopBreakerHandler("budget-session", logger, Detector(loop_threshold=10), cost_per_call_usd=0.00004, max_budget_usd=0.00005)
+    handler.invoke("read_invoice", {"id": "INV-1"}, lambda args: "ok")
+    executed = []
+    with pytest.raises(BudgetExceededException):
+        handler.invoke("read_invoice", {"id": "INV-2"}, lambda args: executed.append(args))
+    assert executed == []
+    assert any(entry[1] == "agent_alerts" and entry[2]["alert_type"] == "budget_exceeded" for entry in client.store)
+    assert any(entry[1] == "agent_sessions" and entry[2] == {"is_paused": True} for entry in client.store)
+
+
+def test_real_langchain_tool_is_blocked_before_dispatch(tmp_path: Path):
+    client = FakeClient()
+    logger = SupabaseLogger(client, tmp_path / "outbox.jsonl")
+    handler = LoopBreakerHandler("langchain-session", logger, Detector(loop_threshold=3))
+    executions = []
+
+    def read_invoice(invoice_id: str) -> str:
+        executions.append(invoice_id)
+        return f"invoice {invoice_id} read"
+
+    tool = StructuredTool.from_function(read_invoice, name="read_invoice", description="Read an invoice")
+    for _ in range(2):
+        handler.invoke("read_invoice", {"invoice_id": "INV-2048"}, tool.invoke)
+    with pytest.raises(LoopDetectedException):
+        handler.invoke("read_invoice", {"invoice_id": "INV-2048"}, tool.invoke)
+    assert executions == ["INV-2048", "INV-2048"]
